@@ -19,7 +19,7 @@
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = "1.1.1-windows"
+$Version = "1.1.2-windows"
 $Pack = $null
 $Python = $null
 
@@ -236,11 +236,13 @@ function Test-Dependencies {
 
   # --- Optional: Steam ---
   $steamPaths = @(
-    "${env:ProgramFiles(x86)}\Steam\steam.exe",
-    "${env:ProgramFiles}\Steam\steam.exe",
-    "$env:LOCALAPPDATA\Steam\steam.exe"
-  ) | Where-Object { $_ -and (Test-Path $_) }
-  if ($steamPaths) {
+    @(
+      "${env:ProgramFiles(x86)}\Steam\steam.exe",
+      "${env:ProgramFiles}\Steam\steam.exe",
+      "$env:LOCALAPPDATA\Steam\steam.exe"
+    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+  )
+  if ($steamPaths.Count -gt 0) {
     & $addDep "Steam" "ok" "optional" $steamPaths[0] ""
   } else {
     & $addDep "Steam" "skip" "optional" "not found - Desktop shortcuts still work" `
@@ -310,13 +312,23 @@ function Test-Dependencies {
 function Invoke-Dmlpack {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$DmlArgs)
   if (-not $script:Python) { throw "Python not configured - run dependency check (menu 8)" }
-  $py = $script:Python
+  $py = @($script:Python)
   $dml = Join-Path $ScriptDir "dmlpack.py"
   if (-not (Test-Path $dml)) { throw "dmlpack.py missing next to installer: $dml" }
   $pyArgs = @()
   if ($py.Count -gt 1) { $pyArgs = $py[1..($py.Count - 1)] }
+  # Unbuffered Python so pre-flight lines appear immediately on Windows consoles
+  $env:PYTHONUNBUFFERED = "1"
+  $env:PYTHONIOENCODING = "utf-8"
+  Write-Host ("  ..  python: {0} {1}" -f ($py -join " "), ($DmlArgs -join " ")) -ForegroundColor DarkGray
   & $py[0] @pyArgs $dml @DmlArgs
-  return $LASTEXITCODE
+  $code = $LASTEXITCODE
+  # Some hosts leave LASTEXITCODE null after py.exe; treat null as failure only
+  # when $? is false, else 0.
+  if ($null -eq $code) {
+    if (-not $?) { $code = 1 } else { $code = 0 }
+  }
+  return [int]$code
 }
 
 function Test-Docker {
@@ -490,9 +502,13 @@ function Do-Install {
   }
 
   Write-Step "pre-flight dry-run"
+  Write-Info "Running: dmlpack.py restore --dry-run (details below)..."
   $rc = Invoke-Dmlpack restore $script:Pack --dry-run
   if ($rc -ne 0) {
-    Write-Err "Pre-flight failed. Fix the issues above, then retry."
+    Write-Err ("Pre-flight failed (exit code {0}). Read the FAIL lines above." -f $rc)
+    Write-Info "Common fixes: free ports listed above; free disk on the destination drive;"
+    Write-Info "close apps using game folders; ensure the .dmlpack path is readable."
+    Write-Info "Tip: menu 3) Preview shows the same dry-run without starting install."
     Pause-Enter
     return
   }

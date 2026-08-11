@@ -44,7 +44,7 @@ import time
 import zlib
 from pathlib import Path
 
-TOOL_VERSION = "1.1.0-windows"
+TOOL_VERSION = "1.1.2-windows"
 DMLPACK_VERSION = 1
 SELF_DIR = Path(__file__).resolve().parent
 MANIFEST_DIR = SELF_DIR / "manifests"
@@ -149,7 +149,19 @@ def human(n: float) -> str:
 
 
 def expand(p: str | Path) -> Path:
-    return Path(os.path.expanduser(str(p)))
+    """Expand ~ and rewrite Deck-baked /home/deck paths for this machine."""
+    s = portabilize(str(p))
+    s = os.path.expanduser(s)
+    # On Windows, pack paths may still look Unix-absolute (/home/...). Prefer
+    # under the user profile when that form appears.
+    if is_windows() and s.startswith("/") and not s.startswith("//"):
+        # e.g. /home/someone/Games/... -> %USERPROFILE%\Games\...
+        parts = [x for x in s.split("/") if x]
+        if len(parts) >= 2 and parts[0] == "home":
+            # Drop "home/<user>" and append the rest under this profile.
+            rest = parts[2:] if len(parts) > 2 else []
+            s = str(Path.home().joinpath(*rest)) if rest else str(Path.home())
+    return Path(s)
 
 
 def contract(p: str | Path) -> str:
@@ -1172,17 +1184,28 @@ def preflight_restore(manifest: dict, pack: Path, tmpdir: Path) -> int:
         if not ok:
             problems.append(f"insufficient space on the filesystem holding {contract(root)}")
 
+    members = manifest.get("members") or []
     free_tmp = shutil.disk_usage(tmpdir if tmpdir.exists() else tmpdir.parent).free
-    biggest = max(m["bytes"] for m in manifest["members"])
-    if free_tmp < biggest * 1.2:
-        problems.append(f"scratch space at {contract(tmpdir)}: need ~{human(biggest)}, free {human(free_tmp)}")
+    if not members:
+        problems.append("pack manifest has no members")
+        biggest = 0
+    else:
+        biggest = max(int(m.get("bytes") or 0) for m in members)
+    if biggest and free_tmp < biggest * 1.2:
+        problems.append(
+            f"scratch space at {contract(tmpdir)}: need ~{human(biggest)}, free {human(free_tmp)}"
+        )
     else:
         print_success(f"scratch space at {contract(tmpdir)}: {human(free_tmp)} free")
 
     # ports
     ports = recipe.get("host_ports") or parse_compose_ports_from_manifest(manifest)
     if ports:
-        held = port_holders(ports)
+        try:
+            held = port_holders(ports)
+        except Exception as exc:  # noqa: BLE001
+            print_warning(f"could not probe host ports ({exc}); continuing")
+            held = {}
         if held:
             for p, who in sorted(held.items()):
                 print_error(f"port {p} already bound by {who}")
@@ -1196,16 +1219,21 @@ def preflight_restore(manifest: dict, pack: Path, tmpdir: Path) -> int:
     else:
         print_success("docker is running")
 
-    # runtime deps (Proton) — not required on native Windows clients
+    # runtime deps (Proton / Steam Linux Runtime) — not used on native Windows clients
     for dep in recipe.get("runtime_deps", []):
         kind = (dep.get("kind") or "").lower()
-        p = expand(dep["path"])
-        if is_windows() and kind in ("proton", "ge-proton", "steamrt"):
-            print_success(f"runtime dep skipped on Windows (native client): {dep.get('path')}")
+        raw_path = dep.get("path") or ""
+        if is_windows():
+            # Windows installs use native .exe clients + Docker servers; Deck/Proton
+            # runtime deps must never block install (optional note only).
+            print_success(
+                f"runtime dep skipped on Windows (native client): {raw_path or kind or 'dep'}"
+            )
             continue
+        p = expand(raw_path)
         # Also rewrite Deck-baked Proton paths for non-Windows multi-distro Linux.
-        if not p.exists() and "/home/deck" in str(dep.get("path", "")):
-            alt = expand(portabilize(dep["path"]))
+        if not p.exists() and "/home/deck" in str(raw_path):
+            alt = expand(portabilize(raw_path))
             if alt.exists():
                 p = alt
         if p.exists():
@@ -1216,8 +1244,20 @@ def preflight_restore(manifest: dict, pack: Path, tmpdir: Path) -> int:
     # steam must be closed before shortcuts.vdf is touched
     if recipe.get("steam", {}).get("shortcuts"):
         if steam_is_running():
-            problems.append("Steam is RUNNING -- close it fully or it silently overwrites "
-                            "shortcuts.vdf on exit, discarding the restored entries")
+            if is_windows():
+                # Desktop + DML-Launchers still work; Steam library shortcuts may be skipped.
+                print_warning(
+                    "Steam is RUNNING -- close it fully before install if you want "
+                    "Steam library shortcuts (Desktop shortcuts still work)"
+                )
+                warnings.append(
+                    "Steam is running; Steam library shortcuts may be skipped or overwritten"
+                )
+            else:
+                problems.append(
+                    "Steam is RUNNING -- close it fully or it silently overwrites "
+                    "shortcuts.vdf on exit, discarding the restored entries"
+                )
         else:
             print_success("Steam is closed")
 
@@ -1286,20 +1326,41 @@ def extract_member(pack: Path, name: str, dest: Path) -> None:
 
 
 def cmd_restore(args) -> int:
-    pack = expand(args.pack)
+    try:
+        pack = expand(args.pack)
+    except Exception as exc:  # noqa: BLE001
+        print_error(f"invalid pack path {args.pack!r}: {exc}")
+        return 2
     if not pack.exists():
         print_error(f"no such pack: {pack}")
         return 2
-    manifest = read_pack_manifest(pack)
+    try:
+        manifest = read_pack_manifest(pack)
+    except Exception as exc:  # noqa: BLE001
+        print_error(f"could not read pack manifest: {exc}")
+        return 2
     recipe = manifest.get("recipe", {})
     tmpdir = expand(args.tmp) if args.tmp else pack.parent / ".dmlpack-tmp"
 
     print_header(f"dmlpack restore -- {manifest['display_name']}")
     print_info(f"packed {manifest['packed_at']} on {manifest['packed_from']}")
+    print_info(f"platform: {'Windows' if is_windows() else 'Linux/macOS'}  tool {TOOL_VERSION}")
 
-    tmpdir.mkdir(parents=True, exist_ok=True)
-    if preflight_restore(manifest, pack, tmpdir):
-        print_error("pre-flight failed; nothing written")
+    try:
+        tmpdir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print_error(f"cannot create scratch dir {tmpdir}: {exc}")
+        return 2
+
+    try:
+        nprob = preflight_restore(manifest, pack, tmpdir)
+    except Exception as exc:  # noqa: BLE001
+        print_error(f"pre-flight crashed: {exc}")
+        import traceback
+        traceback.print_exc()
+        return 2
+    if nprob:
+        print_error(f"pre-flight failed with {nprob} problem(s); nothing written")
         return 2
 
     if args.dry_run:
@@ -1309,8 +1370,11 @@ def cmd_restore(args) -> int:
             print_info(f"  {m['path']:<34} -> {m.get('restore_to', '(per-file)')} "
                        f"({human(m.get('restore_bytes', m['bytes']))})")
         for sc in recipe.get("steam", {}).get("shortcuts", []):
-            appid = gen_appid(quoted(sc["exe"]), sc["name"])
-            print_info(f"  shortcut {sc['name']!r} -> appid {appid}")
+            try:
+                appid = gen_appid(quoted(sc["exe"]), sc["name"])
+                print_info(f"  shortcut {sc['name']!r} -> appid {appid}")
+            except Exception as exc:  # noqa: BLE001
+                print_warning(f"shortcut preview skipped for {sc.get('name')!r}: {exc}")
         return 0
 
     # 1. payload
