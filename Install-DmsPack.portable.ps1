@@ -19,7 +19,7 @@
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = "1.1.2-windows"
+$Version = "1.1.3-windows"
 $Pack = $null
 $Python = $null
 
@@ -309,6 +309,18 @@ function Test-Dependencies {
   }
 }
 
+function Get-NativeExitCode {
+  # Coerce Invoke-Dmlpack results to a single int. PowerShell can otherwise leave
+  # $LASTEXITCODE null after py.exe, or leak log lines into assignment results.
+  param($Value)
+  if ($null -eq $Value) { return 1 }
+  if ($Value -is [Array]) {
+    $last = $Value | Select-Object -Last 1
+    try { return [int]$last } catch { return 1 }
+  }
+  try { return [int]$Value } catch { return 1 }
+}
+
 function Invoke-Dmlpack {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$DmlArgs)
   if (-not $script:Python) { throw "Python not configured - run dependency check (menu 8)" }
@@ -320,15 +332,21 @@ function Invoke-Dmlpack {
   # Unbuffered Python so pre-flight lines appear immediately on Windows consoles
   $env:PYTHONUNBUFFERED = "1"
   $env:PYTHONIOENCODING = "utf-8"
-  Write-Host ("  ..  python: {0} {1}" -f ($py -join " "), ($DmlArgs -join " ")) -ForegroundColor DarkGray
-  & $py[0] @pyArgs $dml @DmlArgs
+  $shown = @($pyArgs + @($dml) + @($DmlArgs)) -join " "
+  Write-Host ("  ..  python: {0} {1}" -f $py[0], $shown) -ForegroundColor DarkGray
+  # CRITICAL (v1.1.3): native stdout must NOT enter the PowerShell success stream.
+  # Callers use `$rc = Invoke-Dmlpack ...`. Without Out-Host, every Python print
+  # becomes part of $rc, so `$rc -ne 0` is always true (false "Archive failed
+  # checks" even when verify/restore exited 0). stderr still goes to the console.
+  & $py[0] @pyArgs $dml @DmlArgs | Out-Host
   $code = $LASTEXITCODE
   # Some hosts leave LASTEXITCODE null after py.exe; treat null as failure only
   # when $? is false, else 0.
   if ($null -eq $code) {
     if (-not $?) { $code = 1 } else { $code = 0 }
   }
-  return [int]$code
+  # Return ONLY the exit code (nothing else on the success stream).
+  return ,[int]$code
 }
 
 function Test-Docker {
@@ -497,13 +515,19 @@ function Do-Install {
   Ensure-SteamClosed | Out-Null
 
   if (Ask-YesNo "Verify archive checksums first (slow, recommended once)?" $false) {
-    $rc = Invoke-Dmlpack verify $script:Pack
-    if ($rc -ne 0) { Write-Err "Archive failed checks - not installing."; Pause-Enter; return }
+    $rc = Get-NativeExitCode (Invoke-Dmlpack verify $script:Pack)
+    if ($rc -ne 0) {
+      Write-Err ("Archive failed checks (exit code {0}) - not installing." -f $rc)
+      Write-Info "If you see no dmlpack output above, re-download kit v1.1.3+."
+      Pause-Enter
+      return
+    }
+    Write-Ok "archive checksums OK"
   }
 
   Write-Step "pre-flight dry-run"
   Write-Info "Running: dmlpack.py restore --dry-run (details below)..."
-  $rc = Invoke-Dmlpack restore $script:Pack --dry-run
+  $rc = Get-NativeExitCode (Invoke-Dmlpack restore $script:Pack --dry-run)
   if ($rc -ne 0) {
     Write-Err ("Pre-flight failed (exit code {0}). Read the FAIL lines above." -f $rc)
     Write-Info "Common fixes: free ports listed above; free disk on the destination drive;"
@@ -518,7 +542,7 @@ function Do-Install {
   Write-Header "Installing - do not close this window"
   # Prefer scratch on the same drive as the pack (USB / data drive) to avoid filling C:
   $tmp = Join-Path (Split-Path $script:Pack -Parent) ".dmlpack-tmp"
-  $rc = Invoke-Dmlpack restore $script:Pack --tmp $tmp
+  $rc = Get-NativeExitCode (Invoke-Dmlpack restore $script:Pack --tmp $tmp)
   if ($rc -eq 0) {
     Write-Header "Done"
     Write-Ok "$name is installed."

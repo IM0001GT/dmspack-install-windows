@@ -44,7 +44,7 @@ import time
 import zlib
 from pathlib import Path
 
-TOOL_VERSION = "1.1.2-windows"
+TOOL_VERSION = "1.1.3-windows"
 DMLPACK_VERSION = 1
 SELF_DIR = Path(__file__).resolve().parent
 MANIFEST_DIR = SELF_DIR / "manifests"

@@ -96,6 +96,7 @@ Close anything already bound to those ports (IIS on 80, other game servers, etc.
 |---------|-----|
 | `Unexpected token` / `Missing closing ')'` as soon as the script starts | You have an **old kit** (v1.1.0) that Windows PowerShell 5.1 mis-read (UTF-8 without BOM + fancy dashes). Download **v1.1.1+** from GitHub releases and replace `Install-DmsPack.portable.ps1`. Do not open/edit the `.ps1` in Notepad and re-save as ANSI. |
 | Deps all OK (only optional zstd missing) but **Pre-flight failed** with no FAIL lines | Fixed in **v1.1.2**: Windows no longer fails pre-flight on Deck/Proton runtime deps; path rewriting for `/home/deck` is fixed; dry-run prints the real Python exit code. Update the kit and retry. |
+| **Verify archive** fails instantly with almost no dmlpack output, even though the pack SHA-256 matches a known-good file | Fixed in **v1.1.3**: PowerShell was capturing Python’s stdout into `$rc = Invoke-Dmlpack …`, hiding the real verify log and treating success as failure (`$rc -ne 0` on an array of log lines). Update the kit and retry — the pack itself is fine. |
 | Steam path shows as a single letter `C` | Cosmetic only (fixed in v1.1.2); Steam is still optional. |
 | Docker not responding | Start Docker Desktop; wait until engine is green |
 | Preflight: port in use | `netstat -ano \| findstr :3724` (etc.) and stop the process |

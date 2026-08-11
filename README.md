@@ -31,6 +31,8 @@ The installer prints a **dependency check** on startup (and menu **8**). Missing
 
 **v1.1.1 note:** If PowerShell immediately prints `Unexpected token` / `Missing closing ')'` around “GB free” or “Windows 10/11”, grab the latest release. Older scripts used Unicode dashes and UTF-8 without BOM, which Windows PowerShell 5.1 often mis-parses.
 
+**v1.1.3 note:** If **Verify archive** fails instantly with no dmlpack log lines (even when the pack hash matches a good copy), grab **v1.1.3+**. Older installers hid Python stdout and mis-read the exit code.
+
 ## Quick start
 
 1. Copy this folder **next to** your `.dmlpack` files (e.g. on the USB stick).

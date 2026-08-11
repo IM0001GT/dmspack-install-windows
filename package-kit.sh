@@ -3,7 +3,7 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-VERSION="${DMLPACK_WINDOWS_VERSION:-1.1.2}"
+VERSION="${DMLPACK_WINDOWS_VERSION:-1.1.3}"
 NAME="dmspack-install-windows-v${VERSION}"
 DIST="${REPO_ROOT}/dist"
 STAGE="${DIST}/.stage-${NAME}"
