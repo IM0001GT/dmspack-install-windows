@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   DMS Pack installer for Windows (Docker Desktop + native clients).
@@ -19,7 +19,7 @@
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = "1.1.0-windows"
+$Version = "1.1.1-windows"
 $Pack = $null
 $Python = $null
 
@@ -214,7 +214,7 @@ function Test-Dependencies {
     }
     "wrong_engine" {
       & $addDep "Docker Desktop" "fail" "required" "Windows containers mode active" `
-        "Switch Docker Desktop to Linux containers (tray icon → Switch to Linux containers)"
+        "Switch Docker Desktop to Linux containers (tray icon -> Switch to Linux containers)"
     }
     "no_compose" {
       & $addDep "Docker Compose" "fail" "required" "docker compose plugin missing" `
@@ -229,7 +229,7 @@ function Test-Dependencies {
   if (Test-CommandExists "zstd" -or Test-CommandExists "zstd.exe") {
     & $addDep "zstd" "ok" "optional" "on PATH (faster extract)" ""
   } else {
-    & $addDep "zstd" "skip" "optional" "not on PATH — Docker alpine will decompress packs" `
+    & $addDep "zstd" "skip" "optional" "not on PATH - Docker alpine will decompress packs" `
       "Optional: install zstd for Windows if you want host-side extract"
     $optionalNotes.Add("zstd optional; Docker can extract .tar.zst without it") | Out-Null
   }
@@ -243,7 +243,7 @@ function Test-Dependencies {
   if ($steamPaths) {
     & $addDep "Steam" "ok" "optional" $steamPaths[0] ""
   } else {
-    & $addDep "Steam" "skip" "optional" "not found — Desktop shortcuts still work" `
+    & $addDep "Steam" "skip" "optional" "not found - Desktop shortcuts still work" `
       "Optional: https://store.steampowered.com/about/ for Steam library shortcuts"
     $optionalNotes.Add("Steam optional; use Desktop / DML-Launchers without it") | Out-Null
   }
@@ -254,7 +254,7 @@ function Test-Dependencies {
     if ($freeHome -ge 40) {
       & $addDep "Free disk (user profile)" "ok" "required" ("{0} GB free on {1}" -f $freeHome, ([IO.Path]::GetPathRoot($env:USERPROFILE))) ""
     } elseif ($freeHome -ge 15) {
-      & $addDep "Free disk (user profile)" "warn" "required" ("only {0} GB free — large packs need ~40+ GB" -f $freeHome) `
+      & $addDep "Free disk (user profile)" "warn" "required" ("only {0} GB free - large packs need ~40+ GB" -f $freeHome) `
         "Free space on the system drive or restore with packs/temp on a larger drive"
     } else {
       & $addDep "Free disk (user profile)" "fail" "required" ("only {0} GB free" -f $freeHome) `
@@ -285,9 +285,9 @@ function Test-Dependencies {
       $level = if ($d.Level -eq "optional") { "optional" } else { "required" }
       Write-Host ("  [{0}] {1,-22} ({2})  {3}" -f $tag, $d.Name, $level, $d.Detail) -ForegroundColor $color
       if ($d.Status -eq "fail" -and $d.Fix) {
-        Write-Host ("         → {0}" -f $d.Fix) -ForegroundColor Yellow
+        Write-Host ("         -> {0}" -f $d.Fix) -ForegroundColor Yellow
       } elseif ($d.Status -eq "warn" -and $d.Fix) {
-        Write-Host ("         → {0}" -f $d.Fix) -ForegroundColor DarkYellow
+        Write-Host ("         -> {0}" -f $d.Fix) -ForegroundColor DarkYellow
       }
     }
     Write-Host ""
@@ -309,7 +309,7 @@ function Test-Dependencies {
 
 function Invoke-Dmlpack {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$DmlArgs)
-  if (-not $script:Python) { throw "Python not configured — run dependency check (menu 8)" }
+  if (-not $script:Python) { throw "Python not configured - run dependency check (menu 8)" }
   $py = $script:Python
   $dml = Join-Path $ScriptDir "dmlpack.py"
   if (-not (Test-Path $dml)) { throw "dmlpack.py missing next to installer: $dml" }
@@ -371,10 +371,10 @@ function Ensure-SteamClosed {
       if (-not (Test-SteamRunning)) { Write-Ok "Steam closed"; return $true }
       Start-Sleep -Seconds 2
     }
-    Write-Err "Steam is still running — close it from the tray, then retry."
+    Write-Err "Steam is still running - close it from the tray, then retry."
     return $false
   }
-  Write-Warn "Continuing with Steam open — Steam shortcuts may be skipped."
+  Write-Warn "Continuing with Steam open - Steam shortcuts may be skipped."
   return $true
 }
 
@@ -486,7 +486,7 @@ function Do-Install {
 
   if (Ask-YesNo "Verify archive checksums first (slow, recommended once)?" $false) {
     $rc = Invoke-Dmlpack verify $script:Pack
-    if ($rc -ne 0) { Write-Err "Archive failed checks — not installing."; Pause-Enter; return }
+    if ($rc -ne 0) { Write-Err "Archive failed checks - not installing."; Pause-Enter; return }
   }
 
   Write-Step "pre-flight dry-run"
@@ -499,7 +499,7 @@ function Do-Install {
   Write-Ok "ready to install"
   if (-not (Ask-YesNo "Unpack now? This can take a long time for multi-GB packs." $true)) { return }
 
-  Write-Header "Installing — do not close this window"
+  Write-Header "Installing - do not close this window"
   # Prefer scratch on the same drive as the pack (USB / data drive) to avoid filling C:
   $tmp = Join-Path (Split-Path $script:Pack -Parent) ".dmlpack-tmp"
   $rc = Invoke-Dmlpack restore $script:Pack --tmp $tmp
@@ -512,7 +512,7 @@ function Do-Install {
     Write-Info "3) Run the GAME shortcut"
   } else {
     Write-Warn "Restore finished with warnings (often Steam shortcuts)."
-    Write-Info "Server/client files are usually fine — use DML-Launchers or option 4."
+    Write-Info "Server/client files are usually fine - use DML-Launchers or option 4."
   }
   Pause-Enter
 }
@@ -539,6 +539,13 @@ function Do-Preview {
   Pause-Enter
 }
 
+function ConvertTo-PythonString([string]$Value) {
+  # Produce a Python single-quoted string literal safe for -c embedding
+  if ($null -eq $Value) { return "''" }
+  $escaped = $Value.Replace('\', '\\').Replace("'", "\'")
+  return "'$escaped'"
+}
+
 function Do-Shortcuts {
   if (-not (Need-Pack)) { return }
   Write-Header "Add shortcuts"
@@ -546,17 +553,22 @@ function Do-Shortcuts {
   Invoke-Dmlpack shortcuts $script:Pack | Out-Host
   # Also re-run launcher install via a tiny restore post-step
   Write-Info "Refreshing Windows launchers..."
-  $code = @'
+  $pyScriptDir = ConvertTo-PythonString $ScriptDir
+  $pyPack = ConvertTo-PythonString $script:Pack
+  # Double-quoted here-string so PowerShell expands $pyScriptDir / $pyPack
+  $code = @"
 import json, tarfile, sys
 from pathlib import Path
-sys.path.insert(0, r"'" + $ScriptDir.Replace("'", "''") + r"'")
+sys.path.insert(0, $pyScriptDir)
 import dmlpack
-pack = Path(r"'" + $script:Pack.Replace("'", "''") + r"'")
+pack = Path($pyPack)
+# .dmlpack is an uncompressed tar (first member = manifest.json)
 with tarfile.open(pack, "r|") as tf:
-    m = json.loads(tf.extractfile(next(tf)).read())
+    first = next(iter(tf))
+    m = json.loads(tf.extractfile(first).read())
 dmlpack.install_windows_launchers(m)
 print("launchers refreshed")
-'@
+"@
   try {
     $py = $script:Python
     & $py[0] @($py[1..($py.Length-1)]) -c $code

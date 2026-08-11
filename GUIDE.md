@@ -94,13 +94,14 @@ Close anything already bound to those ports (IIS on 80, other game servers, etc.
 
 | Symptom | Fix |
 |---------|-----|
+| `Unexpected token` / `Missing closing ')'` as soon as the script starts | You have an **old kit** (v1.1.0) that Windows PowerShell 5.1 mis-read (UTF-8 without BOM + fancy dashes). Download **v1.1.1+** from GitHub releases and replace `Install-DmsPack.portable.ps1`. Do not open/edit the `.ps1` in Notepad and re-save as ANSI. |
 | Docker not responding | Start Docker Desktop; wait until engine is green |
 | Preflight: port in use | `netstat -ano \| findstr :3724` (etc.) and stop the process |
 | Client can’t connect | Server READY? Firewall blocking local ports? |
 | EvEJS login TLS errors | Start server once (generates CA), re-run client (runs `evejs-install-ca.py`) |
 | Turtle instant disconnect | `realmlist.wtf` must be exactly `set realmlist 127.0.0.1` with **no leading space** |
 | Steam shortcuts missing | Close Steam fully, installer option 4 |
-| Extraction fails without zstd | Normal — Docker alpine is used; ensure Docker works |
+| Extraction fails without zstd | Normal - Docker alpine is used; ensure Docker works |
 
 ## Repair without re-copying 30 GB
 

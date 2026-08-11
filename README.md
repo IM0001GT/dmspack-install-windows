@@ -29,6 +29,8 @@ Other dmlpack games may restore data via the same tool; Windows launchers are on
 
 The installer prints a **dependency check** on startup (and menu **8**). Missing Python/Docker get a FAIL line with an install URL; Install will not proceed until required deps pass.
 
+**v1.1.1 note:** If PowerShell immediately prints `Unexpected token` / `Missing closing ')'` around “GB free” or “Windows 10/11”, grab the latest release. Older scripts used Unicode dashes and UTF-8 without BOM, which Windows PowerShell 5.1 often mis-parses.
+
 ## Quick start
 
 1. Copy this folder **next to** your `.dmlpack` files (e.g. on the USB stick).
