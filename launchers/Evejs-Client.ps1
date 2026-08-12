@@ -1,4 +1,4 @@
-# EVE Online (EvEJS) — Windows native client launcher (localhost OR LAN host)
+﻿# EVE Online (EvEJS) - Windows native client launcher (localhost OR LAN host)
 # Reads server host from (first match):
 #   1) $env:EVEJS_SERVER_HOST / $env:EVEJS_PROXY_URL
 #   2) %USERPROFILE%\_local\lan-play\evejs-client.env or %USERPROFILE%\DML-Launchers\evejs-client.env
@@ -123,7 +123,7 @@ $CaCandidates = @(
 )
 $CaPem = $CaCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $CaPem) {
-  Log "WARNING: CA pem not found — TLS login may fail on LAN"
+  Log "WARNING: CA pem not found - TLS login may fail on LAN"
   Log "Copy host server/certs/xmpp-ca-cert.pem next to this launcher or into the client folder as evejs-ca.pem"
 } else {
   Log "CA = $CaPem"
@@ -138,7 +138,7 @@ if (-not $CaPem) {
     & python $caInstaller --client-root $CLIENT_ROOT --ca $CaPem 2>&1 | Tee-Object -FilePath $script:LogFile -Append
     if ($LASTEXITCODE -ne 0) { Log "WARNING: CA install exit $LASTEXITCODE" }
   } elseif ($caInstaller -and $caInstaller.EndsWith(".ps1")) {
-    Log "CA helper is Install-EvEJSCerts.ps1 — run ClientSETUP if TLS fails"
+    Log "CA helper is Install-EvEJSCerts.ps1 - run ClientSETUP if TLS fails"
   } else {
     # Minimal inline: append CA to cacert.pem files if not already present
     $caText = Get-Content -LiteralPath $CaPem -Raw

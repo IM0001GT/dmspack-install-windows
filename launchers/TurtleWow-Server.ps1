@@ -1,4 +1,4 @@
-# Turtle WoW V2 — Windows server launcher with interactive control
+﻿# Turtle WoW V2 - Windows server launcher with interactive control
 $ErrorActionPreference = "Continue"
 $HomeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
 $STACK_DIR = if ($env:TW2_ROOT) { $env:TW2_ROOT } else { Join-Path $HomeDir "tortoise-wow-server-V2" }
@@ -33,7 +33,7 @@ function Stop-Server {
     Pop-Location
   }
   if ($LASTEXITCODE -ne 0) {
-    Write-Host "WARNING: stop returned $LASTEXITCODE — see $LogFile" -ForegroundColor Yellow
+    Write-Host "WARNING: stop returned $LASTEXITCODE - see $LogFile" -ForegroundColor Yellow
   } else {
     Write-Host "Server stopped. Safe to close this window." -ForegroundColor Green
   }
@@ -45,7 +45,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 }
 docker info 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) { Die "Docker is not responding. Start Docker Desktop." }
-if (-not (Test-Path $STACK_DIR)) { Die "Cannot find $STACK_DIR — was the pack restored?" }
+if (-not (Test-Path $STACK_DIR)) { Die "Cannot find $STACK_DIR - was the pack restored?" }
 
 $v1 = docker ps --filter "name=tortoise-realmd" --format "{{.Names}}" 2>$null
 if ($v1) {
@@ -92,10 +92,10 @@ Write-Host "  Now launch the Turtle WoW client."
 Write-Host "  Log: $LogFile"
 Write-Host ""
 Write-Host "  Server control" -ForegroundColor White
-Write-Host "    A  Auto     — shut down when WoW.exe closes"
-Write-Host "    S  Stay     — keep running until you press Q (no client timeout)"
-Write-Host "    Q  Shutdown — stop the server now"
-Write-Host "    R  Status   — is the client process running?"
+Write-Host "    A  Auto     - shut down when WoW.exe closes"
+Write-Host "    S  Stay     - keep running until you press Q (no client timeout)"
+Write-Host "    Q  Shutdown - stop the server now"
+Write-Host "    R  Status   - is the client process running?"
 Write-Host ""
 
 $mode = $null
@@ -113,7 +113,7 @@ while (-not $mode) {
         Write-Host "  No client process right now" -ForegroundColor Yellow
       }
     }
-    default { Write-Host "  Unknown choice — pick A, S, Q, or R" -ForegroundColor Yellow }
+    default { Write-Host "  Unknown choice - pick A, S, Q, or R" -ForegroundColor Yellow }
   }
 }
 
@@ -125,7 +125,7 @@ if ($mode -eq "quit") {
 
 if ($mode -eq "auto") {
   Log "control mode: auto"
-  Write-Host "  Auto mode — waiting for WoW.exe..." -ForegroundColor Cyan
+  Write-Host "  Auto mode - waiting for WoW.exe..." -ForegroundColor Cyan
   $waitUntil = (Get-Date).AddMinutes(5)
   $found = $false
   while ((Get-Date) -lt $waitUntil) {
@@ -135,7 +135,7 @@ if ($mode -eq "auto") {
   }
   Write-Host ""
   if ($found) {
-    Write-Host "  Client detected — have fun! Server stops when the game closes." -ForegroundColor Green
+    Write-Host "  Client detected - have fun! Server stops when the game closes." -ForegroundColor Green
     while ($true) {
       while (ClientRunning) { Start-Sleep -Seconds 3 }
       $gone = $true
@@ -146,14 +146,14 @@ if ($mode -eq "auto") {
       if ($gone) { break }
       Log "client reappeared; resuming watch"
     }
-    Write-Host "  Client closed — shutting the server down..." -ForegroundColor Yellow
+    Write-Host "  Client closed - shutting the server down..." -ForegroundColor Yellow
     Stop-Server
   } else {
-    Write-Host "  No client detected — keeping server up for 3 hours (use Stay to avoid timeout)." -ForegroundColor Yellow
+    Write-Host "  No client detected - keeping server up for 3 hours (use Stay to avoid timeout)." -ForegroundColor Yellow
     $idleUntil = (Get-Date).AddHours(3)
     while ((Get-Date) -lt $idleUntil) {
       if (ClientRunning) {
-        Write-Host "  Client appeared — watching until exit." -ForegroundColor Green
+        Write-Host "  Client appeared - watching until exit." -ForegroundColor Green
         while ($true) {
           while (ClientRunning) { Start-Sleep -Seconds 3 }
           $gone = $true
@@ -169,7 +169,7 @@ if ($mode -eq "auto") {
       }
       Start-Sleep -Seconds 30
     }
-    Write-Host "  Idle timeout — shutting the server down..." -ForegroundColor Yellow
+    Write-Host "  Idle timeout - shutting the server down..." -ForegroundColor Yellow
     Stop-Server
   }
   Read-Host "Press Enter to close"
@@ -177,14 +177,14 @@ if ($mode -eq "auto") {
 }
 
 Log "control mode: stay"
-Write-Host "  Stay mode — server keeps running." -ForegroundColor Green
+Write-Host "  Stay mode - server keeps running." -ForegroundColor Green
 Write-Host "  Press Q then Enter to shut down.  R = client status."
 while ($true) {
   $stamp = Get-Date -Format "HH:mm:ss"
   if (ClientRunning) {
-    Write-Host "  [$stamp] client: running  —  Q=shutdown  R=refresh"
+    Write-Host "  [$stamp] client: running  -  Q=shutdown  R=refresh"
   } else {
-    Write-Host "  [$stamp] client: not detected  —  server still up  —  Q=shutdown"
+    Write-Host "  [$stamp] client: not detected  -  server still up  -  Q=shutdown"
   }
   $cmd = Read-Host "  >"
   if ([string]::IsNullOrWhiteSpace($cmd)) { continue }

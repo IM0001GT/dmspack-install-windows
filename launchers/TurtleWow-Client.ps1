@@ -1,4 +1,4 @@
-# Turtle WoW — Windows native client launcher
+﻿# Turtle WoW - Windows native client launcher
 $ErrorActionPreference = "Continue"
 $HomeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
 $ClientRoot = if ($env:TW_CLIENT) { $env:TW_CLIENT } else { Join-Path $HomeDir "Games\TurtleWoW\TurtleWoW" }

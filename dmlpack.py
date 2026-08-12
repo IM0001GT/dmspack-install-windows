@@ -44,7 +44,7 @@ import time
 import zlib
 from pathlib import Path
 
-TOOL_VERSION = "1.1.3-windows"
+TOOL_VERSION = "1.1.4-windows"
 DMLPACK_VERSION = 1
 SELF_DIR = Path(__file__).resolve().parent
 MANIFEST_DIR = SELF_DIR / "manifests"
@@ -1500,8 +1500,26 @@ def windows_launcher_dir() -> Path:
 
 
 def _write_text(path: Path, text: str) -> None:
+    """Write text for Windows tools.
+
+    Always use UTF-8 **with BOM** and CRLF. Windows PowerShell 5.1 defaults to the
+    system ANSI code page when a .ps1 has no BOM, which turns UTF-8 em-dashes into
+    ``â€"`` and breaks string parsing mid-script (server/client launchers fail).
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\r\n")
+    # Normalize fancy punctuation that still trips older hosts if BOM is stripped.
+    for bad, good in (
+        ("\u2014", " - "),  # em dash
+        ("\u2013", "-"),    # en dash
+        ("\u2018", "'"),
+        ("\u2019", "'"),
+        ("\u201c", '"'),
+        ("\u201d", '"'),
+        ("\u2026", "..."),
+        ("\u00a0", " "),
+    ):
+        text = text.replace(bad, good)
+    path.write_text(text, encoding="utf-8-sig", newline="\r\n")
 
 
 def install_windows_launchers(manifest: dict) -> None:
@@ -1546,17 +1564,19 @@ def install_windows_launchers(manifest: dict) -> None:
             print_warning(f"missing launcher template: {src}")
             continue
         dest = out / src_name
-        text = src.read_text(encoding="utf-8")
+        text = src.read_text(encoding="utf-8-sig")
         text = text.replace("__HOME__", str(home))
         text = text.replace("__USERPROFILE__", str(home))
         _write_text(dest, text)
         print_success(str(dest))
         if desktop.is_dir():
             try:
+                # -NoProfile: faster, no profile encoding quirks
+                # -ExecutionPolicy Bypass: unsigned kit scripts still run
                 create_windows_shortcut(
                     desktop / lnk_name,
                     target=str(shutil.which("powershell.exe") or r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"),
-                    arguments=f'-NoExit -ExecutionPolicy Bypass -File "{dest}"',
+                    arguments=f'-NoProfile -NoExit -ExecutionPolicy Bypass -File "{dest}"',
                     workdir=str(home),
                     description=lnk_name.replace(".lnk", ""),
                 )
@@ -1620,7 +1640,7 @@ def register_shortcuts_windows(manifest: dict, steam: dict) -> bool:
         if script and script.is_file():
             sc["exe"] = ps
             sc["startdir"] = str(Path.home())
-            sc["launchopts"] = f'-NoExit -ExecutionPolicy Bypass -File "{script}"'
+            sc["launchopts"] = f'-NoProfile -NoExit -ExecutionPolicy Bypass -File "{script}"'
             sc.pop("vdf", None)  # force reconstruct with new exe (new appid)
         remapped.append(sc)
 

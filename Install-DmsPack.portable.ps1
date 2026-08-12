@@ -19,7 +19,7 @@
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = "1.1.3-windows"
+$Version = "1.1.4-windows"
 $Pack = $null
 $Python = $null
 

@@ -1,4 +1,4 @@
-# EVE Online (EvEJS) — stop docker stack (compose stop, keep volumes)
+﻿# EVE Online (EvEJS) - stop docker stack (compose stop, keep volumes)
 $ErrorActionPreference = "Continue"
 $HomeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
 $EVEJS_ROOT = if ($env:EVEJS_ROOT) { $env:EVEJS_ROOT } else { Join-Path $HomeDir "evejs-xeve" }

@@ -33,6 +33,8 @@ The installer prints a **dependency check** on startup (and menu **8**). Missing
 
 **v1.1.3 note:** If **Verify archive** fails instantly with no dmlpack log lines (even when the pack hash matches a good copy), grab **v1.1.3+**. Older installers hid Python stdout and mis-read the exit code.
 
+**v1.1.4 note:** If the **server/client shortcut** fails with a PowerShell parse error or garbled `â€"` / "misaligned character" in `Evejs-Server.ps1`, grab **v1.1.4+** and re-run menu **4) Shortcuts** (or reinstall). Older kits wrote UTF-8 em-dashes without a BOM.
+
 ## Quick start
 
 1. Copy this folder **next to** your `.dmlpack` files (e.g. on the USB stick).

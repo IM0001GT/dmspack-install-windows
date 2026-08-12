@@ -1,4 +1,4 @@
-# Turtle WoW V2 — stop compose stack (keep volumes)
+﻿# Turtle WoW V2 - stop compose stack (keep volumes)
 $ErrorActionPreference = "Continue"
 $HomeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
 $STACK_DIR = if ($env:TW2_ROOT) { $env:TW2_ROOT } else { Join-Path $HomeDir "tortoise-wow-server-V2" }
